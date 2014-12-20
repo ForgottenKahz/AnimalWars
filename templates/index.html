@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<!--
+Christopher Reeves 
+Clique Puzzle Game
+September 2014
+-->
+<html>
+<head>
+<meta name="description" content="[Cytoscape.js pie style]" />
+<meta charset=utf-8 />
+<!-- Latest compiled and minified CSS -->
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.9.1.min.js"></script>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
+
+<!-- Optional theme -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap-theme.min.css">
+
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
+  
+    
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
+    
+  
+
+    <script src="http://cytoscape.github.io/cytoscape.js/api/cytoscape.js-latest/cytoscape.min.js"></script>
+    <script type="text/javascript" charset="utf-8">
+        var username = '{{ username }}'
+        var character = '{{ character }}'
+        var my_current_node = null;
+        var opponent_current_node = null;
+        var socket;
+
+        var currentGame = {
+            opponentId : '',
+            opponentName : '',
+            opponentcharacter : '',
+            myId : '',
+            myName :'',
+            myCharacterurl : '',
+            theirCharacterurl : '',
+            myPoints : 0,
+            theirPoints : 0,
+            myturn : 0,
+            gameid : '',
+            playertype : ''
+        };
+
+        
+        currentGame.myPoints = 0;
+        currentGame.theirPoints = 0;
+
+
+        $(document).ready(function(){
+          $(".alert").hide();
+
+            $("#join-new-game").click(function(){
+              location.reload();
+
+            });
+                        $("#join-new-game-won").click(function(){
+              location.reload();
+
+            });
+                                    $("#join-new-game-lost").click(function(){
+              location.reload();
+
+            });
+                                                $("#join-new-game-tie").click(function(){
+              location.reload();
+
+            });
+
+
+            namespace = '/test'; // change to an empty string to use the global namespace
+
+            $("#username").text(username);
+            
+            // the socket.io documentation recommends sending an explicit package upon connection
+            // this is specially important when using the global namespace
+             socket = io.connect('http://' + document.domain + ':' + location.port + namespace,{'force new connection': true,'sync disconnect on unload':true });
+            socket.on('connect', function() {
+                socket.emit('my info', {username: username,character:character});
+            });
+
+            // event handler for server sent data
+            // the data is displayed in the "Received" section of the page
+            socket.on('my response', function(msg) {
+               var myurl = msg.mypictureurl;
+
+                currentGame.myCharacterurl = myurl;
+                $("#mypicture").attr("src", myurl);
+                    
+            });
+
+              socket.on('opponent info', function(msg) {
+
+                var opponentid = msg.opponentid;
+                var opponent_character_url = msg.characterurl;
+                currentGame.theirCharacterurl = opponent_character_url;
+                currentGame.opponentcharacter = msg.opponentcharacter;
+
+                $("#opponentpicture").attr("src", opponent_character_url);
+                $("#opponentname").text(opponentid);
+
+                 //$('#log').append('recieved '+msg.opponentid+" "+msg.characterurl);
+
+                
+                // if (msg.data =='Client Connected To Game')
+                // {
+                //     $('#log').append('Client Connected to game '+msg.gameid);
+                // }
+                // else if (msg.data ==)
+                // {
+                //     $('#log').append('Client added to message qye'+msg.clientid);
+                // }
+                 socket.emit('ready to play', {data: "true"});
+                    
+            });
+
+            // event handler for server sent data
+            // the data is displayed in the "Received" section of the page
+            socket.on('my turn', function(msg) {
+              currentGame.myturn = 1;
+              $("#their-turn").hide();
+              $("#your-turn").show(); 
+               setCharacters();     
+            });
+
+            socket.on('their turn', function(msg) {
+              currentGame.myturn = 0;
+              $("#your-turn").hide();
+              $("#their-turn").show();
+               setCharacters();
+                    
+            });
+
+              socket.on('recieve move', function(msg) {
+              
+                 var cy = $("#cy").cytoscape("get");
+                  var eles = cy.elements();      
+                 var player1 =cy.elements('node#player1');
+                  var player2 =cy.elements('node#player2');
+                  var opponentpoints = msg.opponentpoints;
+                  var opponentprofit = msg.profit;
+
+                  currentGame.theirPoints = opponentpoints;
+                  $("#opponentpoints").text(currentGame.theirPoints);
+                  var player_who_moved = msg.playertype;
+                  var destinationNode = cy.elements('node#'+msg.destination);
+                  
+
+                  destinationNode.data('points','0');
+                  destinationNode.data('explored',true);
+                  destinationNode.addClass('explored');
+
+                 if(opponent_current_node != null)
+                {
+                  opponent_current_node.unlock(); 
+                }
+
+                  opponent_current_node = destinationNode;
+
+                  if(player_who_moved == "player1")
+                  {
+                    moveTo(player1,destinationNode);
+                  }
+                  else
+                  {
+                    moveTo(player2,destinationNode);
+                  }
+
+                    
+    // code goes here
+    
+                    
+            });
+
+            socket.on('ConnectedToGame', function(msg) {
+                currentGame.gameid = msg.gameid;
+                currentGame.myId = msg.clientid;
+                currentGame.playertype = msg.playertype;
+                //currentGame.
+                socket.emit('joingame', {gameid: msg.gameid});
+                 socket.emit('player info', {username: username , character:character});
+                 $("#waiting-for-players").hide();
+                //$('#log').append('Client Connected to game '+msg.gameid);
+                renderMap(msg.gamemap);
+
+                   
+            });
+
+
+
+            socket.on('OpponentLeftGame', function(msg) {
+                $(".alert").hide();
+                $("#opponent-left").show();
+               // $('#log').append('Opponent Left Game: '+msg.opponentid);
+                   
+            });
+
+            socket.on('player won', function(msg) {
+                $(".alert").hide();
+                $("#you-won").show();                                  
+            });
+            
+            socket.on('player lost', function(msg) {
+                $(".alert").hide();
+                $("#you-lost").show();                                  
+            });
+
+            socket.on('tie game', function(msg) {
+                $(".alert").hide();
+                $("#tie-game").show();                                  
+            });
+
+
+            socket.on('ConnectedToPlayerQueue', function(msg) {
+                currentGame.myId = msg.clientid;
+                $("#waiting-for-players").show();
+                //$('#log').append('Client Connected to Player Queue'+msg.clientid);
+                   
+            });
+
+            $(window).unload(function(){
+            
+                socket.emit('goodbye','left game');
+                
+            });
+
+            // handlers for the different forms in the page
+            // these send data to the server in a variety of ways
+            $('form#emit').submit(function(event) {
+                socket.emit('my event', {data: $('#emit_data').val()});
+                return false;
+            });
+            $('form#broadcast').submit(function(event) {
+                socket.emit('my broadcast event', {data: $('#broadcast_data').val()});
+                return false;
+            });
+            $('form#join').submit(function(event) {
+                socket.emit('join', {room: $('#join_room').val()});
+                return false;
+            });
+
+            $('form#join').submit(function(event) {
+                socket.emit('join', {room: $('#join_room').val()});
+                return false;
+            });
+            
+            $('form#leave').submit(function(event) {
+                socket.emit('leave', {room: $('#leave_room').val()});
+                return false;
+            });
+
+
+            $('form#get_numclients').submit(function(event) {
+                socket.emit('get num clients', {room: $('#get_numclients').val()});
+                return false;
+            });
+
+            $('form#send_room').submit(function(event) {
+                socket.emit('my room event', {room: $('#room_name').val(), data: $('#room_data').val()});
+                return false;
+            });
+        });
+    </script>
+    <script id="jsbin-javascript">
+$(function(){ // on dom ready
+
+$('#cy').cytoscape({
+  style: cytoscape.stylesheet()
+    .selector('node')
+      .css({
+        'width': '60px',
+        'height': '60px',
+        'background-fit':'cover',
+         'text-valign': 'center',
+        'content': 'data(points)'
+      })
+    .selector('.tapped-unexplored')
+      .css({
+        'background-color':'red'
+      })
+      .selector('.tapped-explored')
+      .css({
+        'background-color':'black'
+      })
+      .selector('.current-node')
+      .css({
+        'background-color':'blue'
+      })
+
+      .selector('.explored')
+      .css({
+        'background-color':'green'
+      })
+
+
+       .selector('.me')
+      .css({
+        'border-color':'#FFD700',
+        'border-width':5       
+      })
+
+    .selector('.cat')
+      .css({
+ 
+        'background-image': '/static/cat.jpg'
+      })
+          .selector('.bird')
+      .css({
+ 
+        'background-image': '/static/bird.jpg'
+      })
+          .selector('.cow')
+      .css({
+ 
+        'background-image': '/static/cow.png'
+      })
+          .selector('.wolf')
+      .css({
+ 
+        'background-image': '/static/wolf.jpg'
+      })
+          .selector('.shark')
+      .css({
+ 
+        'background-image': '/static/shark.jpg'
+      })
+
+    .selector('edge')
+      .css({
+        'width': 4,
+        'target-arrow-shape': 'line',
+        'opacity': 0.5
+      })
+    .selector('.faded')
+      .css({
+        'opacity': 0.25,
+        'text-opacity': 0
+      }),
+  
+  elements: {
+    nodes: [
+    ],
+
+    edges: [
+    ]
+  },
+
+  layout: {
+    name: 'cose',
+    padding: 10
+  },
+
+
+  ready: function(){
+    window.cy = this;
+
+     
+    
+
+    cy.on('tap', function(e){
+
+        //cy.elements().removeClass('cat');
+        cy.elements().removeClass('current-node');
+
+        if( e.cyTarget === cy ){
+        cy.elements().removeClass('faded');
+        cy.elements().removeClass('tapped-unexplored');
+      }
+    });
+
+
+
+          window.cy.on('tap', 'node', function(e){
+          
+            var player1 =cy.elements('node#player1');
+            var player2 =cy.elements('node#player2');
+            cy.elements().removeClass('tapped-unexplored');
+
+
+
+
+           var node = e.cyTarget;
+
+           var delay = 0;
+           var duration = 500;
+           
+
+           // if this is one then we can move
+           if (currentGame.myturn ===1 && node.data('id')!='player1' && node.data('id')!='player2' )
+           {
+            var canSelectThisNode = 0;
+
+            if(my_current_node == null)
+            {
+              canSelectThisNode = 1;
+            }
+            else
+            {
+              
+               if(node.allAreNeighbors(my_current_node))
+               {
+                canSelectThisNode = 1;
+               }
+               else
+               {
+                console.log('they are not equal');
+
+               }
+
+            }
+              
+              if(canSelectThisNode==1 )
+              {
+                                // yay we choose a node to move to
+                // now we need to make sure we can actually move here...
+
+                if (currentGame.playertype=="player1")
+                {
+                  moveTo(player1,node); 
+                }
+                else
+                {
+                  moveTo(player2,node); 
+                }
+                 
+
+
+
+                 var profit = node.data('points');
+                if (!isNaN(profit))
+                {
+                 currentGame.myPoints += Number(profit);
+                  $("#mypoints").text(currentGame.myPoints);
+     
+                }
+                currentGame.myturn = 0;
+                node.data('points',0);
+               
+                node.data('explored',true);
+                node.addClass('explored');
+                if(my_current_node != null)
+                {
+                  my_current_node.unlock(); 
+                }
+
+                my_current_node = node;
+                destination1 = node.data('id');
+
+                 socket.emit('send move', {playertype:currentGame.playertype, destination:destination1,profit:profit,totalpoints:currentGame.myPoints});
+
+
+              }
+            
+           }
+           if (node.data('id')=='player1')
+           {
+                if (currentGame.playertype=="player1" && my_current_node!= null)
+                {
+                    var neighborhood = my_current_node.neighborhood().add(my_current_node);                   
+                    var neighborNodes = my_current_node.neighborhood('node');
+                    neighborNodes.addClass('tapped-unexplored');  
+                    cy.elements().addClass('faded');
+                    neighborhood.removeClass('faded');                
+                }
+                if(currentGame.playertype=="player2" && opponent_current_node!= null)
+                {
+                    var neighborhood = opponent_current_node.neighborhood().add(opponent_current_node);
+                    var neighborNodes = opponent_current_node.neighborhood('node');
+                    neighborNodes.addClass('tapped-unexplored');   
+                    cy.elements().addClass('faded');
+                    neighborhood.removeClass('faded');              
+                }
+           }           
+           else if(node.data('id')=='player2')
+            {
+                if (currentGame.playertype=="player2" && my_current_node!= null)
+                {
+                    var neighborhood = my_current_node.neighborhood().add(my_current_node);                   
+                    var neighborNodes = my_current_node.neighborhood('node');
+                    neighborNodes.addClass('tapped-unexplored');
+                    cy.elements().addClass('faded');
+                    neighborhood.removeClass('faded');
+                }
+                 if (currentGame.playertype=="player1" && opponent_current_node!= null)
+                 {
+                    var neighborhood = opponent_current_node.neighborhood().add(opponent_current_node);
+                    var neighborNodes = opponent_current_node.neighborhood('node');
+                    neighborNodes.addClass('tapped-unexplored');
+                    cy.elements().addClass('faded');
+                    neighborhood.removeClass('faded');
+                 }                              
+            }
+            else
+            {
+              var neighborhood = node.neighborhood().add(node);
+          var neighborNodes = node.neighborhood('node');
+
+          neighborNodes.addClass('tapped-unexplored');
+          this.addClass('current-node');
+
+
+        cy.elements().addClass('faded');
+        neighborhood.removeClass('faded');
+        node.removeClass('faded');
+
+
+            }
+
+
+      
+       /* var connectedEdges = this.connectedEdges(function(){
+          return !this.target().anySame( this );
+        });
+
+
+        var connectedNodes = connectedEdges.targets();
+*/
+/*        for(var j = 0; j< cy.elements.nodes;j++)
+        {
+          cy.elements.nodes[j].removeClass('tapped-unexplored');
+
+        }
+        this.addClass('current-node');
+        for( var i = connectedNodes.length-1; i >0 ; i--)
+        {
+          var linkedNode =connectedNodes[i];
+          linkedNode.addClass('tapped-unexplored');
+
+        }*/
+
+    })
+
+
+  }
+
+
+});
+
+}); // on dom ready
+
+function myFunction() {
+    document.getElementById("demo").innerHTML = Math.random();
+}
+
+function moveTo(node,destinationNode){
+           var delay = 0;
+           var duration = 500;
+ node.delay( delay, function(){
+      
+    } ).animate({
+      position: destinationNode.position()
+      
+    }, {
+      duration: duration,
+      complete: function(){
+       
+      }
+    });
+    
+    delay += duration;
+
+    node.lock();
+    destinationNode.lock();
+
+
+}
+
+function renderMap(gamemap){
+
+    var cy = $("#cy").cytoscape("get");
+    
+    var eles = cy.elements();
+    
+    
+
+    var response_obj = JSON.parse( gamemap );
+    cy.load(response_obj);
+
+
+    cy.elements().unselectify();
+   
+
+    // code goes here
+ 
+    var player1 =cy.elements('node#player1');
+    var player2 =cy.elements('node#player2');
+
+
+
+     var player1_starting_location = cy.elements('node[whichplayer = "player1"]');
+     var player2_starting_location = cy.elements("node[whichplayer = 'player2']");
+     
+ 
+    
+ 
+   
+
+ 
+}
+
+function setCharacters()
+{
+ var cy = $("#cy").cytoscape("get");
+  var player1 =cy.elements('node#player1');
+    var player2 =cy.elements('node#player2');
+//$('#log').append('character pics '+character.toString()+currentGame.opponentcharacter.toString());
+
+
+
+     if (currentGame.playertype =="player1")
+     {
+      player1.addClass('me');
+        switch(Number(character))
+      {
+      case 0:
+           player1.addClass('cat'); 
+           break;
+      case 1:
+             player1.addClass('bird');
+             break;
+      case 2:
+          player1.addClass('cow');
+          break;
+      case 3:
+            player1.addClass('wolf');
+            break;
+      case 4:
+            player1.addClass('shark');
+            break;
+      default:
+            player1.addClass('shark');
+
+     } 
+
+          switch(Number(currentGame.opponentcharacter))
+     {
+      case 0:
+           player2.addClass('cat'); 
+           break;
+      case 1:
+             player2.addClass('bird');
+             break;
+      case 2:
+          player2.addClass('cow');
+          break;
+      case 3:
+            player2.addClass('wolf');
+            break;
+      case 4:
+            player2.addClass('shark');
+            break;
+      default:
+            player2.addClass('shark');
+     }
+     
+     }
+     if (currentGame.playertype =="player2")
+     {
+          switch(Number(currentGame.opponentcharacter))
+     {
+      case 0:
+           player1.addClass('cat'); 
+           break;
+      case 1:
+             player1.addClass('bird');
+             break;
+      case 2:
+          player1.addClass('cow');
+          break;
+      case 3:
+            player1.addClass('wolf');
+            break;
+      case 4:
+            player1.addClass('shark');
+            break;
+      default:
+            player1.addClass('shark');
+
+     } 
+
+      switch(Number(character))
+     {
+      case 0:
+           player2.addClass('cat'); 
+           break;
+      case 1:
+             player2.addClass('bird');
+             break;
+      case 2:
+          player2.addClass('cow');
+          break;
+      case 3:
+            player2.addClass('wolf');
+            break;
+      case 4:
+            player2.addClass('shark');
+            break;
+      default:
+            player2.addClass('shark');
+     }
+      player2.addClass('me');
+     } 
+
+}
+
+
+
+</script>
+
+
+
+<title>Animal Wars</title>
+<style id="jsbin-css">
+body { 
+  font: 14px helvetica neue, helvetica, arial, sans-serif;
+}
+
+#cy {
+  height: 100%;
+  width: 100%;
+  position: relative;
+
+
+  
+}
+</style>
+</head>
+<body>
+
+    <div class="container" >
+
+      <!-- Static navbar -->
+      <nav class="navbar navbar-default" role="navigation">
+        <div class="container-fluid">
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+              <span class="sr-only">Toggle navigation</span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="#">Animal Wars</a>
+          </div>
+          <div id="navbar" class="navbar-collapse collapse">
+            
+          </div><!--/.nav-collapse -->
+        </div><!--/.container-fluid -->
+      </nav>
+
+      <!-- Main component for a primary marketing message or call to action -->
+
+               
+
+      <div style="height:500px;" class="panel panel-default"  id="cy">
+         
+      </div>
+  
+  <div id="waiting-for-players"  class="alert alert-info alert-dismissible" role="alert">
+  <!-- <button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button> -->
+  <strong>Waiting for Players....</strong> Thank You for waiting...
+</div>
+
+<div id="you-won"  class="alert alert-success alert-dismissible" role="alert">
+  <!-- <button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button> -->
+  <strong>Congratulations You Won!</strong> <a id="join-new-game-won" href ="#"> Play Again</a> 
+</div>
+
+<div id="you-lost"  class="alert alert-danger alert-dismissible" role="alert">
+  <!-- <button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button> -->
+  <strong>You Lost The Game</strong> <a id="join-new-game-lost" href ="#"> Play Again</a> 
+</div>
+
+<div id="opponent-left"  class="alert alert-danger alert-dismissible" role="alert">
+ <!--  <button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button> -->
+  <strong>Your Opponent Disconnected</strong> <a id="join-new-game" href ="#"> Join A New Game</a> 
+</div>
+
+<div id="your-turn"  class="alert alert-info alert-dismissible" role="alert">
+  <strong>Your Turn</strong> 
+</div>
+
+<div id="tie-game"  class="alert alert-info alert-dismissible" role="alert">
+  <strong>Tie Game</strong> <a id="join-new-game-tie" href ="#"> Play Again</a> 
+</div>
+
+<div id="their-turn"  class="alert alert-warning alert-dismissible" role="alert">
+  <strong>Waiting For Opponent To Move...</strong> 
+</div>
+
+
+      <div class="row">
+  <div class="col-sm-6 col-md-4">
+    <div class="thumbnail">
+      <img id ="mypicture" src="/static/profile.png" width="200" height="200" class="img-circle" alt="...">
+      <div class="caption ">
+        <h3 class="text-center" id="username">{{ username }}</h3>
+        <h1 class="text-center" id="mypoints">0</h1>
+        
+      </div>
+    </div>
+  </div>
+
+    <div class="col-sm-6 col-md-4">
+
+  </div>
+
+
+  <div class="col-sm-6 col-md-4">
+    <div class="thumbnail">
+      <img id="opponentpicture" src="/static/profile.png" width="200" height="200" class="img-circle" alt="...">
+      <div class="caption">
+        <h3 class="text-center" id="opponentname">Waiting For Player</h3>
+        <h1 class="text-center"id="opponentpoints">0</h1>
+      
+       
+      </div>
+    </div>
+  </div>
+</div>
+
+<!--     <h1>Flask-SocketIO Test</h1>
+    <h2>Send:</h2>
+    <form id="emit" method='POST' action='#'>
+        <input type="text" name="emit_data" id="emit_data" placeholder="Message">
+        <input type="submit" value="Echo"></div>
+    </form>
+    <form id="broadcast" method='POST' action='#'>
+        <input type="text" name="broadcast_data" id="broadcast_data" placeholder="Message">
+        <input type="submit" value="Broadcast">
+    </form>
+    <form id="join" method='POST' action='#'>
+        <input type="text" name="join_room" id="join_room" placeholder="Room Name">
+        <input type="submit" value="Join Room">
+    </form>
+    <form id="leave" method='POST' action='#'>
+        <input type="text" name="leave_room" id="leave_room" placeholder="Room Name">
+        <input type="submit" value="Leave Room">
+    </form>
+    <form id="send_room" method='POST' action='#'>
+        <input type="text" name="room_name" id="room_name" placeholder="Room Name">
+        <input type="text" name="room_data" id="room_data" placeholder="Message">
+        <input type="submit" value="Send to Room">
+    </form>
+    <form id="get_numclients" method='POST' action='#'>
+        <input type="submit" value="Get NumClients">
+    </form>
+    <h2>Receive:</h2>
+    <div id="log"></div> -->
+
+    </div> <!-- /container -->
+
+</body>
+</html>

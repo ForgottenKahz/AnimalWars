@@ -1,0 +1,261 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+
+
+    <meta http-equiv="content-type" content="text/html;charset=iso-8859-1" />
+    <meta name="description" value="this is a game for my school" />
+    <meta name="keywords" value="round, borderradius, carousel, circel, slider" />
+    <title>Animal Wars</title>
+
+    <!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/2.3.2/css/bootstrap.min.css">
+
+<!-- Optional theme -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/2.3.2/css/bootstrap-theme.min.css">
+
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/2.3.2/js/bootstrap.min.js"></script>
+        <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
+    <script src="http://code.jquery.com/jquery-1.8.2.min.js" type="text/javascript"></script>
+    <script src="http://coolcarousels.frebsite.nl/c/62/jquery.carouFredSel-6.2.0-packed.js" type="text/javascript"></script>
+    <script type="text/javascript">
+        var current_position = 0;
+
+
+
+          $(function() {
+        $('#carousel').carouFredSel({
+          direction: 'up',
+          items: 1,
+          auto:
+          {
+            play:false,
+            pauseOnHover:true,
+
+          },
+          scroll: {
+            play:false,
+            onAfter : function( data ) 
+            { 
+              $(this).trigger("currentPosition", function( pos ) 
+              {
+                var txt = "<p>Showing item " + (pos+1) + " of " + $("> *", this).length + ".</p>";
+               console.log(pos);
+               current_position = pos;
+              });
+
+
+        },
+            duration:500,
+            fx: 'directscroll'
+          },
+          pagination: {
+            container: '#pager',
+            anchorBuilder: function( nr ) {
+              
+              return '<a href="#" class="thumb' + nr + '"><img src="' + this.src + '" width="50" /></a>';
+            }
+          }
+        });
+      });
+
+   
+   $( document ).ready(function() {
+
+        
+
+          $( "#gobutton" ).click(function() {
+             if( $("#usernametext").val().length ===0 ) 
+             {
+                 $(".alert").delay(200).addClass("in").fadeOut(4000, function() {
+                    $(this).removeClass('in').show();
+                  });
+              }
+              else
+              {
+
+                 var request_url = "/login/" + $("#usernametext").val() + "/"+current_position.toString();
+                 $.get((request_url), function( data ) {
+                 
+                  });
+
+                 window.location =request_url; 
+
+       //        socket.emit('username created', {username: $("#usernametext").val() });
+
+              }
+    });
+    console.log( "ready!" );
+});
+
+
+
+
+
+
+
+    </script>
+    <style type="text/css">
+     
+      #border, #wrapper {
+        border-radius: 200px;
+        overflow: hidden;
+        width: 250px;
+        height: 250px;
+        position: absolute;
+        top: 30%;
+        left: 50%;
+      }
+
+      #joingame{
+        width: 250px;
+        height: 250px;
+        position: absolute;
+        top: 30%;
+        left: 50%;
+        padding-top: 200px;
+         margin: 0 0 0 -150px;
+
+      }
+       .alert{
+        width:300px;
+  
+        top:50px;
+        position:relative;
+         
+      }
+
+      #border {
+        box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+        border: 25px solid #eee;
+        margin: -165px 0 0 -150px;
+        z-index: 0;
+      }
+      #wrapper {
+        border: 10px solid #eee;
+        margin: -150px 0 0 -135px;
+        z-index: 2;
+      }
+      #carousel img {
+        display: block;
+        float: left;
+      }
+      
+      #pager {
+        width: 300px;
+        margin: -15px 0 0 -150px;
+        position: absolute;
+        top: 30%;
+        left: 50%;
+        z-index: 1;
+      }
+      #pager a {
+        border: 5px solid #eee;
+        border-radius: 30px;
+        overflow: hidden;
+        display: block;
+        width: 50px;
+        height: 50px;
+        margin: 0 0 0 -30px;
+        position: absolute;
+        left: 50%;
+        
+        -webkit-transition: margin 0.5s ease;
+        -moz-transition: margin 0.5s ease;
+        transition: margin 0.5s ease;
+      }
+      #pager a.thumb1 {
+        top: 45px;
+        margin-left: -150px;
+      }
+      #pager a.thumb1.selected {
+        margin-top: -20px;
+        margin-left: -115px;
+      }
+      #pager a.thumb2 {
+        top: 90px;
+        margin-left: -98px;
+      }
+      #pager a.thumb2.selected {
+        margin-top: -35px;
+        margin-left: -85px;
+      }
+      #pager a.thumb3 {
+        top: 110px;
+      }
+      #pager a.thumb3.selected {
+        margin-top: -40px;
+      }
+      #pager a.thumb4 {
+        top: 90px;
+        margin-left: 38px;
+      }
+      #pager a.thumb4.selected {
+        margin-top: -35px;
+        margin-left: 25px;
+      }
+      #pager a.thumb5 {
+        top: 45px;
+        margin-left: 90px;
+      }
+      #pager a.thumb5.selected {
+        margin-top: -20px;
+        margin-left: 55px;
+      }
+
+
+    </style>
+  </head>
+  <body>
+
+   <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <button type="button" class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="brand" href="#">Animal Wars</a>
+        </div>
+      </div>
+    </div>
+
+
+
+
+
+    <div id="border"></div>
+    <div id="wrapper">
+      <div id="carousel">
+        <img src="/static/cat.jpg" width="250" height="250" />
+        <img src="/static/bird.jpg" width="250" height="250" />
+        <img src="/static/cow.png" width="250" height="250" />
+        <img src="/static/wolf.jpg" width="250" height="250" />
+        <img src="/static/shark.jpg" width="250" height="250" />
+
+      </div>
+    </div>
+    <div id="pager"></div>
+
+<div id="joingame"class="input-append">
+  <input id="usernametext" type="text">
+  <button class="btn" id="gobutton" type="button">Join Game</button>
+</div>
+
+   
+ 
+    <div class="alert alert-danger fade notification pull-right">
+      <button type="button" class="close" data-dismiss="alert">x</button>
+      <strong>Error </strong>Please Enter a Username
+    </div>
+
+</div>
+
+
+
+
+  </body>
+</html>
